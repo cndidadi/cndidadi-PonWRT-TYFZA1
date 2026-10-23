@@ -120,7 +120,7 @@ jobs:
           TYFZA1_CONFIG: ${{ inputs.config_file }}
         run: |
           export PATH="/usr/lib/llvm-18/bin:$PATH"
-          sh port/scripts/build.sh sources/openwrt "$(nproc)" 2>&1 | tee artifacts/build.log
+          sh port/scripts/build.sh sources/openwrt 1 2>&1 | tee artifacts/build.log
       - name: Verify built board variants
         run: |
           kernel=$(python3 port/tools/project_paths.py --kernel-directory sources/openwrt)

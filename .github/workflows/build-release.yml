@@ -121,7 +121,7 @@ jobs:
         run: |
           set -o pipefail  # 👈 核心：添加这行命令，确保 build.sh 失败时步骤立刻报错
           export PATH="/usr/lib/llvm-18/bin:$PATH"
-          sh port/scripts/build.sh sources/openwrt 1 2>&1 | tee artifacts/build.log
+          sh port/scripts/build.sh sources/openwrt 2 2>&1 | tee artifacts/build.log
       - name: Verify built board variants
         run: |
           echo "=== 检查 sources/openwrt 目录结构 ==="

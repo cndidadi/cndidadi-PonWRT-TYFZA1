@@ -25,6 +25,21 @@ cp "$PROJECT/artifacts/pe-radio-production/pe-tx-code.h" \
 sh "$PORT/scripts/sync-overlay.sh" "$TREE"
 sh "$PROJECT/scripts/prepare_luci_feeds.sh" "$TREE"
 cd "$TREE"
+
+# ==================== 🛠️ 强行锁死瑞昱（Realtek）方案配置 ====================
+echo "=== 正在执行瑞昱方案配置文件初始化 ==="
+if [ -n "${TYFZA1_CONFIG:-}" ] && [ -f "$PROJECT/$TYFZA1_CONFIG" ]; then
+    echo "使用用户指定的自定义瑞昱配置: $TYFZA1_CONFIG"
+    cp "$PROJECT/$TYFZA1_CONFIG" .config
+elif [ -f "$PORT/configs/tyfza1_defconfig" ]; then
+    echo "未指定配置，自动应用全量瑞昱默认配置: tyfza1_defconfig"
+    cp "$PORT/configs/tyfza1_defconfig" .config
+else
+    echo "应用基础兼容配置初始化瑞昱平台..."
+    cp "$PORT/configs/tyfza1-compat.config" .config
+fi
+# ====================================================================
+
 REGDB_PATCHED=0
 if ! grep -Fq 'regulatory.db.p7s' package/firmware/wireless-regdb/Makefile; then
     patch -p1 --fuzz=0 < "$PORT/host-patches/110-wireless-regdb-signed.patch"

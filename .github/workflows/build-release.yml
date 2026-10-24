@@ -124,6 +124,19 @@ jobs:
           sh port/scripts/build.sh sources/openwrt 1 2>&1 | tee artifacts/build.log
       - name: Verify built board variants
         run: |
+          echo "=== 检查 sources/openwrt 目录结构 ==="
+          ls -la sources/openwrt
+          
+          echo "=== 检查 build_dir 目录是否存在 ==="
+          if [ -d "sources/openwrt/build_dir" ]; then
+            ls -la sources/openwrt/build_dir
+            echo "=== 全局搜索 linux-* 目录的位置 ==="
+            find sources/openwrt -type d -name "linux-*"
+          else
+            echo "错误：build_dir 目录根本不存在！"
+          fi
+          
+          echo "=== 运行原 Python 脚本 ==="
           kernel=$(python3 port/tools/project_paths.py --kernel-directory sources/openwrt)
           python3 scripts/test_board_variants.py --kernel "$kernel"
       - name: Package firmware and installer

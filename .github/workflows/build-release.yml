@@ -135,7 +135,6 @@ jobs:
           else
             echo "错误：build_dir 目录根本不存在！"
           fi
-          
           echo "=== 运行原 Python 脚本 ==="
           kernel=$(python3 port/tools/project_paths.py --kernel-directory sources/openwrt)
           python3 scripts/test_board_variants.py --kernel "$kernel"

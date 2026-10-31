@@ -16,10 +16,10 @@ binary = (directory / 'pe-tx.bin').read_bytes()
 
 def case(lengths, cap, from_epp=False, hw_rts=False, bandwidth=2, rate=0x100, observe=None, ni_header=16, compact_epp=False):
     base, mb, pages, headers, payload, ring, bar, ni, reports = (
-        0x04000000, 0x04002000, 0x05100000, 0x05200000, 0x06000000,
+        0x04000000, 0x04002000, 0x05100000, 0x05400000, 0x06000000,
         0x05000000, 0x12000000, 0x10000000, 0x06200000)
     u = Uc(UC_ARCH_MIPS, UC_MODE_MIPS32 | UC_MODE_LITTLE_ENDIAN)
-    for at, size in [(0x1fc00000, 0x10000), (base, 0x20000), (pages, 0xc000),
+    for at, size in [(0x1fc00000, 0x10000), (base, 0x20000), (pages, 0x32000),
                      (headers, 0xc000), (payload, 0x10000), (ring, 0x4000),
                      (bar, 0x10000), (ni, 0x10000), (reports, 0x80000),
                      (0x10020000, 0x1000), (0x10030000, 0x1000)]:
@@ -75,8 +75,8 @@ def case(lengths, cap, from_epp=False, hw_rts=False, bandwidth=2, rate=0x100, ob
             u.mem_write(at + 64, struct.pack('>II', (1 << 31) if ni_header == 16 else 0, (length + ni_header - 8) << 15) + bytes(ni_header - 8))
             u.mem_write(0x10030000 + n * 8, struct.pack('<II', at | 0x50, (1 << 14 if compact_epp else 0) | (length + 16)))
         else:
-            u.mem_write(at, struct.pack('<4I', 0xa5a5a5a5, length | ni_header << 16, 0xdeadbeef,
-                        at + 2048 if n + 1 < len(lengths) else 0))
+            u.mem_write(at, struct.pack('<4I', at + 2048 if n + 1 < len(lengths) else 0,
+                        length | ni_header << 16, 0xdeadbeef, 0xa5a5a5a5))
     submits, returns = [], []
     u.hook_add(UC_HOOK_MEM_WRITE, lambda uc, access, at, size, value, data:
                submits.extend(range(submits[-1] + 1 if submits else 1, value + 1)),
@@ -89,12 +89,13 @@ def case(lengths, cap, from_epp=False, hw_rts=False, bandwidth=2, rate=0x100, ob
         observe(u)
     u.emu_start(0xbfc00400, 0x9fc0fff0, count=100000)
     assert get(mb + 28 * 4) == len(lengths) and get(mb + 38 * 4) == 0
+    assert get(base + 0x1c020) == len(lengths)
     assert get(mb + 30 * 4) == len(submits) and not returns
     assert get(base + 0x18020) == len(lengths)
     member = 0
     all_ids = []
     for slot in range(len(submits)):
-        page = bytes(u.mem_read(pages + (256 + slot) * 128, 128))
+        page = bytes(u.mem_read(get(ring + slot * 8 + 4), 128))
         count = struct.unpack_from('<I', page, 4)[0] >> 26
         assert bool(struct.unpack_from('<I', page, 32)[0] & (1 << 12)) == hw_rts
         assert struct.unpack_from('<I', page, 28)[0] >> 28 & 3 == bandwidth
@@ -129,8 +130,8 @@ def case(lengths, cap, from_epp=False, hw_rts=False, bandwidth=2, rate=0x100, ob
         all_ids.append(ids)
         member += count
     assert member == len(lengths)
-    # PE0 forwards RPQ completions in the current dual-PE ABI.
-    # Model that boundary; this test executes PE1 gather and BID recycling.
+    # Seed completed WPs to isolate PE1 gather and BID recycling.
+    # The RPQ firmware test covers report decoding.
     for slot, ids in enumerate(all_ids):
         put(base + 0xc404 + slot * 8, get(base + 0xc404 + slot * 8) | (1 << 31))
         put(base + 0xc800 + slot * 4, slot)
@@ -159,7 +160,8 @@ if __name__ == '__main__':
         rows = [case([64 + (n + pad) % 4 for n in range(count)], 7935)
                 for count in range(2, 9) for pad in range(4)]
         rows += [case([1500] * 8, 7935), case([1500] * 8, 3839)]
-        rows += [case([1514] * 8, 7935, True), case([64, 65, 66, 67], 7935, True)]
+        rows += [case([1514] * 8, 7935, True), case([1514] * 32, 10896, True),
+                 case([64, 65, 66, 67], 7935, True)]
         rows += [case([1514] * 4, 7935, True, True)]
         rows += [case([1514] * 7, 10896, True, ni_header=8),
                  case([1514] * 7, 10896, True, compact_epp=True)]

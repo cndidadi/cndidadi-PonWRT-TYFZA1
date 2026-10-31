@@ -119,15 +119,10 @@ jobs:
           TYFZA1_SIGNING_KEYS: ${{ github.workspace }}/artifacts/signing
           TYFZA1_CONFIG: ${{ inputs.config_file }}
         run: |
-          set -o pipefail  # 👈 核心：添加这行命令，确保 build.sh 失败时步骤立刻报错
           export PATH="/usr/lib/llvm-18/bin:$PATH"
-          sh port/scripts/build.sh sources/openwrt 3 2>&1 | tee artifacts/build.log
+          sh port/scripts/build.sh sources/openwrt "$(nproc)" 2>&1 | tee artifacts/build.log
       - name: Verify built board variants
         run: |
-          echo "=== 检查生成的固件产物与体积 ==="
-          # 列出 bin 目录下生成的所有固件镜像文件及其大小
-          find sources/openwrt/bin/ -type f -exec ls -lh {} + || true
-          echo "=== 运行原 Python 脚本 ==="
           kernel=$(python3 port/tools/project_paths.py --kernel-directory sources/openwrt)
           python3 scripts/test_board_variants.py --kernel "$kernel"
       - name: Package firmware and installer
